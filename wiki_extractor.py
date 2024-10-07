@@ -329,10 +329,10 @@ class Template(list):
         return ''.join([tpl.subst(params, extractor, depth) for tpl in self])
 
     def __str__(self):
-        return ''.join([unicode(x) for x in self])
+        return ''.join([str(x) for x in self])
 
 
-class TemplateText(unicode):
+class TemplateText(str):
     """Fixed text of template"""
 
     def subst(self, params, extractor, depth):
@@ -1361,7 +1361,7 @@ def sharp_expr(expr):
         expr = re.sub('mod', '%', expr)
         expr = re.sub('\bdiv\b', '/', expr)
         expr = re.sub('\bround\b', '|ROUND|', expr)
-        return unicode(eval(expr))
+        return str(eval(expr))
     except:
         return '<span class="error"></span>'
 
@@ -2282,7 +2282,7 @@ def compact(text):
 def handle_unicode(entity):
     numeric_code = int(entity[2:-1])
     if numeric_code >= 0x10000: return ''
-    return unichr(numeric_code)
+    return chr(numeric_code)
 
 
 # ------------------------------------------------------------------------------

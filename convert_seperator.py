@@ -1,27 +1,31 @@
-from pathlib2 import Path
+from pathlib import Path
 import os
 
-#root ='/home/adir/Projects/text-segmentation-2017/data/choi/'
-root  = '/home/adir/Projects/text-segmentation-2017/data/choi/1/3-5'
-output ='/home/adir/Projects/text-segmentation-2017/data/part_choi/'
-delimeter = '=========='
+# Define paths and settings
+root = '/home/adir/Projects/text-segmentation-2017/data/choi/1/3-5'
+output = '/home/adir/Projects/text-segmentation-2017/data/part_choi/'
+delimiter = '=========='
 truth = '********************************************'
 
-textfiles = list(Path(root).glob('**/*.ref'))
-
+# Get all .ref files recursively from the root directory
+textfiles = list(Path(root).rglob('*.ref'))
 
 counter = 0
 
+# Iterate over all text files
 for file in textfiles:
     counter += 1
-    with file.open('r') as f:
+    with file.open('r', encoding='utf-8') as f:
         raw_text = f.read()
-    new_text = raw_text.replace('==========',truth)
-    f.close()
-    new_file_path = os.path.join(output,str(counter) + "_" + os.path.basename(str(file)))
-    with open(new_file_path, "w") as f:
+
+    # Replace the old delimiter with the new "truth" separator
+    new_text = raw_text.replace(delimiter, truth)
+
+    # Create a new file path for the modified content
+    new_file_path = os.path.join(output, f"{counter}_{file.name}")
+
+    # Write the new content to the new file
+    with open(new_file_path, "w", encoding='utf-8') as f:
         f.write(new_text)
-    f.close()
 
-print 'done'
-
+print('done')

@@ -3,76 +3,71 @@ from argparse import ArgumentParser
 import os
 import wiki_utils
 
-
 def main(args):
     utils.read_config_file(args.config)
-    utils.config.update(args.__dict__)
+    utils.config.update(vars(args))  # Use vars(args) for dictionary-like access
 
     file_path = args.input
     segments_path = args.segment
     output_folder_path = args.output
 
+    # Read the segments content file
+    with open(segments_path, "r", encoding='utf-8') as file:
+        segments_content = file.read()
 
-    file = open(str(segments_path), "r")
-    segments_content = file.read()
-    file.close()
+    # Read the input file
+    with open(file_path, "r", encoding='utf-8') as file:
+        raw_content = file.read()
 
-    file = open(str(file_path ), "r")
-    raw_content = file.read()
-    file.close()
+    sentences = [s for s in raw_content.strip().split("\n") if s]
+    segments = [s for s in segments_content.strip().split("\n") if s]
 
-    sentences  = [s for s in raw_content.decode('utf-8').strip().split("\n") if len(s) > 0 and s != "\n"]
-    segments = [s for s in segments_content.decode('utf-8').strip().split("\n") if len(s) > 0 and s != "\n"]
-
-    result_file_path = None
+    if len(sentences) != len(segments):
+        print("len(sentences) != len(segments)")
+        return
 
     last_doc_id = 0
     last_topic = ""
+    result_file_path = None
 
-    if (len(sentences) != len(segments)):
-        print "len(sentences) != len(segments)"
-        return
-
-    for i in range(len(sentences)) :
-
+    for i in range(len(sentences)):
         sentence = sentences[i]
-        segment = segments[i].encode('utf-8').split("\r")[0]
+        segment = segments[i].split("\r")[0]
 
         first_comma_index = segment.index(',')
-        second_comma_index = segment[first_comma_index + 1 :].index(',')
-        current_doc_id = segment[0:first_comma_index]
-        current_topic = segment[first_comma_index + second_comma_index + 2:]
+        second_comma_index = segment[first_comma_index + 1:].index(',') + first_comma_index + 1
+        current_doc_id = segment[:first_comma_index]
+        current_topic = segment[second_comma_index + 1:]
 
-        if (current_doc_id != last_doc_id):
+        # Handle new document id and create a new file for it
+        if current_doc_id != last_doc_id:
             last_doc_id = current_doc_id
-            print 'new file index'
-            print last_doc_id
-            if (result_file_path != None):
+            print('New file index:', last_doc_id)
+            if result_file_path:
                 result_file.close()
-            result_file_path = os.path.join(output_folder_path ,str(current_doc_id) + ".text")
-            result_file = open(str(result_file_path), "w")
+
+            result_file_path = os.path.join(output_folder_path, f"{current_doc_id}.text")
+            result_file = open(result_file_path, "w", encoding='utf-8')
             last_topic = ""
 
-        if (current_topic != last_topic):
+        # Write new topic to the file if changed
+        if current_topic != last_topic:
             last_topic = current_topic
-            level = 1 if (current_topic == "TOP-LEVEL SEGMENT") else 2
-            result_file.write((wiki_utils.get_segment_seperator(level ,current_topic) +".").encode('utf-8'))
-            result_file.write("\n".encode('utf-8'))
+            level = 1 if current_topic == "TOP-LEVEL SEGMENT" else 2
+            result_file.write(wiki_utils.get_segment_seperator(level, current_topic) + ".\n")
 
-        actual_sentence = sentence
-        result_file.write(actual_sentence.encode('utf-8'))
-        if  ('\n' in sentence):
-            print 'back slash in sentnece'
-        #result_file.write(".".encode('utf-8'))
-        result_file.write("\n".encode('utf-8'))
+        # Write the actual sentence to the file
+        result_file.write(sentence + "\n")
 
+    if result_file_path:
+        result_file.close()
 
 if __name__ == '__main__':
     parser = ArgumentParser()
 
     parser.add_argument('--config', help='Path to config.json', default='config.json')
     parser.add_argument('--input', help='Chen text file', required=True)
-    parser.add_argument('--segment', help='regina segmentation file', required=True)
-    parser.add_argument('--output', help='folder for converted files', required=True)
+    parser.add_argument('--segment', help='Regina segmentation file', required=True)
+    parser.add_argument('--output', help='Folder for converted files', required=True)
 
     main(parser.parse_args())

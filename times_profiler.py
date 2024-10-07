@@ -1,36 +1,41 @@
 from timeit import default_timer as timer
 
 
-class profiler():
-
+class profiler:
     segments = []
     start = 0
     end = 0
 
-
     @staticmethod
-    def set ():
-
+    def set():
+        """
+        Mark the end of a segment and start the timer for the next segment.
+        """
         profiler.end = timer()
         profiler.segments.append(profiler.end - profiler.start)
         profiler.start = timer()
-
-        return
 
     @staticmethod
     def init():
+        """
+        Initialize the profiler by starting the timer.
+        """
         profiler.start = timer()
-
-        return
 
     @staticmethod
     def finish(profilerLog):
+        """
+        Finish profiling and log the results to the provided logger.
+        
+        Args:
+            profilerLog: A logger object to which profiling results will be logged.
+        """
         profiler.end = timer()
         profiler.segments.append(profiler.end - profiler.start)
-        str2log = ""
-        for i in range(len(profiler.segments)):
-            str2log += str(i) +"-"+str(i+1)+" = " + "{:.2f}".format(profiler.segments[i]) + " "
-        profilerLog.debug(str2log)
-        profiler.segments = []
-        return
 
+        # Format the results for logging
+        str2log = " ".join([f"{i}-{i+1} = {segment:.2f}" for i, segment in enumerate(profiler.segments)])
+        profilerLog.debug(str2log)
+
+        # Clear the segments after logging
+        profiler.segments = []

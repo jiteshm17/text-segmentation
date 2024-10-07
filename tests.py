@@ -1,75 +1,59 @@
-from __future__ import print_function
-
-from unittest import TestCase
-from utils import unsort
 import unittest
+from utils import unsort
 import accuracy
 import numpy as np
 import text_manipulation
 
-class LoaderTests(TestCase):
-    def testReallyTrivial(self):
-        assert 1 + 1 == 2
+class LoaderTests(unittest.TestCase):
+    def test_really_trivial(self):
+        self.assertEqual(1 + 1, 2)
 
 class PkTests(unittest.TestCase):
     def test_get_boundaries(self):
-        sentences_class = []
-        sentences_class.append(("first sen.", 1))
-        sentences_class.append(("sec sen.", 1))
-        sentences_class.append(("third sen.", 0))
-        sentences_class.append(("forth sen.", 1))
-        sentences_class.append(("fifth sen.", 0))
-        sentences_class.append(("sixth sen.", 0))
-        sentences_class.append(("seventh sen.", 1))
-
+        sentences_class = [
+            ("first sen.", 1),
+            ("sec sen.", 1),
+            ("third sen.", 0),
+            ("forth sen.", 1),
+            ("fifth sen.", 0),
+            ("sixth sen.", 0),
+            ("seventh sen.", 1)
+        ]
         expected = [2, 2, 4, 6]
         result = accuracy.get_seg_boundaries(sentences_class)
-
-        for i, num in enumerate(result):
-            self.assertTrue(num == expected[i])
+        self.assertEqual(result, expected)
 
     def test_get_boundaries2(self):
-        sentences_class = []
-        sentences_class.append(("first sen is 5 words.", 0))
-        sentences_class.append(("sec sen.", 0))
-        sentences_class.append(("third sen is a very very very long sentence.", 1))
-        sentences_class.append(("the forth one is single segment.", 1))
-
-
+        sentences_class = [
+            ("first sen is 5 words.", 0),
+            ("sec sen.", 0),
+            ("third sen is a very very very long sentence.", 1),
+            ("the forth one is a single segment.", 1)
+        ]
         expected = [16, 6]
         result = accuracy.get_seg_boundaries(sentences_class)
+        self.assertEqual(result, expected)
 
-        for i, num in enumerate(result):
-            self.assertTrue(num == expected[i])
-
-    def test_pk_perefct_seg(self):
-        sentences_class = []
-        sentences_class.append(("first sen is 5 words.", 0))
-        sentences_class.append(("sec sen.", 0))
-        sentences_class.append(("third sen is a very very very long sentence.", 1))
-        sentences_class.append(("the forth one is single segment.", 1))
-
+    def test_pk_perfect_seg(self):
+        sentences_class = [
+            ("first sen is 5 words.", 0),
+            ("sec sen.", 0),
+            ("third sen is a very very very long sentence.", 1),
+            ("the forth one is a single segment.", 1)
+        ]
         gold = accuracy.get_seg_boundaries(sentences_class)
         h = accuracy.get_seg_boundaries(sentences_class)
 
-        # with specified window size
-        for window_size in range(1, 15, 1):
+        for window_size in range(1, 15):
             acc = accuracy.pk(gold, h, window_size=window_size)
-            self.assertEquals(acc, 1)
+            self.assertEqual(acc, 1)
 
-        # with default window size
         acc = accuracy.pk(gold, h)
-        self.assertEquals(acc, 1)
+        self.assertEqual(acc, 1)
 
     def test_pk_false_neg(self):
-        h = []
-        h.append(("5 words sentence of data.", 0))
-        h.append(("2 sentences same seg.", 1))
-
-        gold = []
-        gold.append(("5 words sentence of data.", 1))
-        gold.append(("2 sentences same seg.", 1))
-
+        h = [("5 words sentence of data.", 0), ("2 sentences same seg.", 1)]
+        gold = [("5 words sentence of data.", 1), ("2 sentences same seg.", 1)]
 
         gold = accuracy.get_seg_boundaries(gold)
         h = accuracy.get_seg_boundaries(h)
@@ -77,75 +61,73 @@ class PkTests(unittest.TestCase):
         window_size = 3
         comparison_count = 6
 
-        # with default window size
         acc = accuracy.pk(gold, h)
-        self.assertEquals(acc, window_size / comparison_count)
+        self.assertEqual(acc, window_size / comparison_count)
 
         window_size = 4
         acc = accuracy.pk(gold, h)
-        self.assertEquals(acc, window_size / comparison_count)
+        self.assertEqual(acc, window_size / comparison_count)
 
     def test_windiff(self):
-        h = []
-        h.append(("5 words sentence of data.", 0))
-        h.append(("short.", 1))
-        h.append(("extra segmented sen.", 1))
-        h.append(("last and very very very very very long sen.", 1))
+        h = [
+            ("5 words sentence of data.", 0),
+            ("short.", 1),
+            ("extra segmented sen.", 1),
+            ("last and very very very very very long sen.", 1)
+        ]
 
-
-        gold = []
-        gold.append(("5 words sentence of data.", 1))
-        gold.append(("short.", 1))
-        gold.append(("extra segmented sen.", 0))
-        gold.append(("last and very very very very very long sen.", 1))
-
+        gold = [
+            ("5 words sentence of data.", 1),
+            ("short.", 1),
+            ("extra segmented sen.", 0),
+            ("last and very very very very very long sen.", 1)
+        ]
 
         gold = accuracy.get_seg_boundaries(gold)
         h = accuracy.get_seg_boundaries(h)
 
         window_size = 3
+        acc = accuracy.win_diff(gold, h, window_size=window_size)
+        self.assertEqual(float(acc), 0.6)
 
-        acc = accuracy.win_diff(gold, h, window_size = window_size)
-        self.assertEquals(float(acc), 0.6)
-        
         window_size = 5
-        expected = float(1)- float(8) / 13
+        expected = 1 - 8 / 13
 
         acc = accuracy.win_diff(gold, h, window_size=window_size)
-        self.assertEquals("{0:.5f}".format(float(acc)), "{0:.5f}".format(expected))
+        self.assertAlmostEqual(float(acc), expected, places=5)
 
-
-class UnsortTests(TestCase):
+class UnsortTests(unittest.TestCase):
     def test_unsort(self):
         x = np.random.randint(0, 100, 10)
         sort_order = np.argsort(x)
         unsort_order = unsort(sort_order)
-        assert np.all(x[sort_order][unsort_order] == x)
+        np.testing.assert_array_equal(x[sort_order][unsort_order], x)
 
-
-class SentenceTokenizerTests(TestCase):
-    def test_a_little(self):
-        a = text_manipulation.split_sentences(u"Hello, Mr. Trump, how do you do? What? Where? I don't i.e e.g Russia.")
-        assert a == [u'Hello, Mr. Trump, how do you do?',
-                     u'What?',
-                     u'Where?',
-                     u"I don't i.e e.g Russia."]
+class SentenceTokenizerTests(unittest.TestCase):
+    def test_split_sentences(self):
+        text = u"Hello, Mr. Trump, how do you do? What? Where? I don't i.e e.g Russia."
+        expected = [
+            u'Hello, Mr. Trump, how do you do?',
+            u'What?',
+            u'Where?',
+            u"I don't i.e e.g Russia."
+        ]
+        result = text_manipulation.split_sentences(text)
+        self.assertEqual(result, expected)
 
     def test_linebreaks(self):
         text = u'''Line one. Still line one.
 
         Line two. Can I span
         two lines?'''
-        a = text_manipulation.split_sentences(text)
-        print(a)
-        assert a == [u'Line one.',
-                     u'Still line one.',
-                     u'Line two.',
-                     u'Can I span\n        two lines?']
-
-
-
-
+        expected = [
+            u'Line one.',
+            u'Still line one.',
+            u'Line two.',
+            u'Can I span\n        two lines?'
+        ]
+        result = text_manipulation.split_sentences(text)
+        self.assertEqual(result, expected)
 
 if __name__ == '__main__':
     unittest.main()

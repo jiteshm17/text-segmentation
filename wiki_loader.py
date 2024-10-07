@@ -79,7 +79,8 @@ def read_wiki_file(path, word2vec, remove_preface_segment=True, ignore_list=Fals
                     if 1 <= len(sentence_words):
                         data.append([word_model(word, word2vec) for word in sentence_words])
                     else:
-                        logger.info('Sentence in wikipedia file is empty')
+                        # logger.info('Sentence in wikipedia file is empty')
+                        continue
                 else:  # for the annotation. keep sentence as is.
                     if only_letters:
                         sentence = re.sub('[^a-zA-Z0-9 ]+', '', sentence)

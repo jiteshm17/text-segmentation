@@ -1,0 +1,5 @@
+{
+    "word2vecfile": "/Users/jitesh/Downloads/text-segmentation/data/word2vec/GoogleNews-vectors-negative300.bin",
+    "choidataset": "/home/omri/code/text-segmentation-2017/data/choi",
+    "wikidataset": "/Users/jitesh/Downloads/text-segmentation/data/wiki 727"
+}

@@ -20,12 +20,12 @@ def get_cache_path(wiki_folder):
     return cache_file_path
 
 def cache_wiki_filenames(wiki_folder):
-    files = Path(wiki_folder).glob('*/*/*/*')
+    files = str(Path(wiki_folder))
     cache_file_path = get_cache_path(wiki_folder)
 
     with cache_file_path.open('w+') as f:
-        for file in files:
-            f.write(str(file) + u'\n')
+        for file in os.listdir(files):
+            f.write(os.path.join(files,file) + u'\n')
 
 def clean_section(section):
     cleaned_section = section.strip('\n')
@@ -94,6 +94,7 @@ def read_wiki_file(path, word2vec, remove_preface_segment=True, ignore_list=Fals
 
 class WikipediaDataSet(Dataset):
     def __init__(self, root, word2vec, train=True, manifesto=False, folder=False, high_granularity=False):
+        
         if manifesto:
             self.textfiles = list(Path(root).glob('*'))
         else:

@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import DataLoader
-from torch.autograd import Variable
 import torch.nn.functional as F
 
 from choiloader import ChoiDataset, collate_fn
@@ -175,11 +174,11 @@ def main(args):
         test_dataset = dataset_class(dataset_path / 'test', word2vec, high_granularity=args.high_granularity)
 
         train_dl = DataLoader(train_dataset, batch_size=args.bs, collate_fn=collate_fn, shuffle=True,
-                              num_workers=args.num_workers)
+                              num_workers=args.num_workers,pin_memory=args.pin_memory)
         dev_dl = DataLoader(dev_dataset, batch_size=args.test_bs, collate_fn=collate_fn, shuffle=False,
-                            num_workers=args.num_workers)
+                            num_workers=args.num_workers,pin_memory=args.pin_memory)
         test_dl = DataLoader(test_dataset, batch_size=args.test_bs, collate_fn=collate_fn, shuffle=False,
-                             num_workers=args.num_workers)
+                             num_workers=args.num_workers,pin_memory=args.pin_memory)
 
     model = import_model(args.model) if args.model else torch.load(open(args.load_from, 'rb'))
     model = maybe_cuda(model)
@@ -190,23 +189,24 @@ def main(args):
         best_val_pk = 1.0
         for j in range(args.epochs):
             train(model, args, j, train_dl, logger, optimizer)
-            torch.save(model, open(checkpoint_path / f'model{j:03d}.t7', 'wb'))
+            torch.save(model, open(checkpoint_path / f'model{j:03d}.pt', 'wb'))
 
             val_pk, threshold = validate(model, args, j, dev_dl, logger)
             if val_pk < best_val_pk:
                 test_pk = test(model, args, j, test_dl, logger, threshold)
                 logger.debug(colored(f'Current best model from epoch {j} with p_k {test_pk} and threshold {threshold}', 'green'))
                 best_val_pk = val_pk
-                torch.save(model, open(checkpoint_path / 'best_model.t7', 'wb'))
+                torch.save(model, open(checkpoint_path / 'best_model.pt', 'wb'))
 
     else:
         test_dl = DataLoader(WikipediaDataSet(args.infer, word2vec=word2vec, high_granularity=args.high_granularity),
-                             batch_size=args.test_bs, collate_fn=collate_fn, shuffle=False, num_workers=args.num_workers)
+                             batch_size=args.test_bs, collate_fn=collate_fn, shuffle=False, num_workers=args.num_workers,pin_memory=args.pin_memory)
         print(test(model, args, 0, test_dl, logger, 0.4))
 
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--cuda', help='Use cuda?', action='store_true')
+    parser.add_argument('--pin_memory', help='Pin Memory?', action='store_true')
     parser.add_argument('--test', help='Test mode? (e.g. fake word2vec)', action='store_true')
     parser.add_argument('--bs', help='Batch size', type=int, default=8)
     parser.add_argument('--test_bs', help='Test batch size', type=int, default=5)

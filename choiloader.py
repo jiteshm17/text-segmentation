@@ -6,6 +6,8 @@ from text_manipulation import split_sentences, word_model, extract_sentence_word
 import utils
 import math
 from pathlib import Path  # Use pathlib, which is built-in with Python 3
+from torch.nn.utils.rnn import pack_padded_sequence
+import torch.nn.functional as F
 
 logger = utils.setup_logger(__name__, 'train.log')
 
@@ -13,6 +15,37 @@ def get_choi_files(path):
     all_objects = Path(path).rglob('*.ref')  # Use rglob for recursive file search
     files = [str(p) for p in all_objects if p.is_file()]
     return files
+
+
+def custom_pad(s, max_length):
+    s_length = s.size()[0]
+    v = utils.maybe_cuda(s.unsqueeze(0).unsqueeze(0))
+    padded = F.pad(v, (0, 0, 0, max_length - s_length))  # (1, 1, max_length, 300)
+    shape = padded.size()
+    return padded.view(shape[2], 1, shape[3])  # (max_length, 1, 300)
+
+def pack_tensor(batch):
+        
+    sentences_per_doc = []
+    all_batch_sentences = []
+    for document in batch:
+        all_batch_sentences.extend(document)
+        sentences_per_doc.append(len(document))
+
+    lengths = [s.size()[0] for s in all_batch_sentences]
+    sort_order = np.argsort(lengths)[::-1]
+    sorted_sentences = [all_batch_sentences[i] for i in sort_order]
+    sorted_lengths = [s.size()[0] for s in sorted_sentences]
+
+    max_length = max(lengths)
+    logger.debug('Num sentences: %s, max sentence length: %s', 
+                    sum(sentences_per_doc), max_length)
+
+    padded_sentences = [custom_pad(s, max_length) for s in sorted_sentences]
+    big_tensor = torch.cat(padded_sentences, 1)  # (max_length, batch size, 300)
+    packed_tensor = pack_padded_sequence(big_tensor, sorted_lengths, enforce_sorted=False)
+    return packed_tensor,sentences_per_doc,sort_order
+
 
 def collate_fn(batch):
     batched_data = []
@@ -43,7 +76,11 @@ def collate_fn(batch):
             logger.debug('Exception!', exc_info=True)
             continue
 
-    return batched_data, batched_targets, paths
+    packed_data,sentences_per_doc,sort_order = pack_tensor(batched_data)
+
+    data = (packed_data,sentences_per_doc,sort_order,len(batch))
+    
+    return (data,batched_targets,paths)
 
 def clean_paragraph(paragraph):
     cleaned_paragraph = paragraph.replace("'' ", " ").replace(" 's", "'s").replace("``", "").strip('\n')

@@ -74,28 +74,9 @@ class Model(nn.Module):
         padded = F.pad(v, (0, 0, 0, max_document_length - d_length))  # (1, 1, max_length, 300)
         shape = padded.size()
         return padded.view(shape[2], 1, shape[3])  # (max_length, 1, 300)
-
-    def forward(self, batch):
-        batch_size = len(batch)
-
-        sentences_per_doc = []
-        all_batch_sentences = []
-        for document in batch:
-            all_batch_sentences.extend(document)
-            sentences_per_doc.append(len(document))
-
-        lengths = [s.size()[0] for s in all_batch_sentences]
-        sort_order = np.argsort(lengths)[::-1]
-        sorted_sentences = [all_batch_sentences[i] for i in sort_order]
-        sorted_lengths = [s.size()[0] for s in sorted_sentences]
-
-        max_length = max(lengths)
-        logger.debug('Num sentences: %s, max sentence length: %s', 
-                     sum(sentences_per_doc), max_length)
-
-        padded_sentences = [self.pad(s, max_length) for s in sorted_sentences]
-        big_tensor = torch.cat(padded_sentences, 1)  # (max_length, batch size, 300)
-        packed_tensor = pack_padded_sequence(big_tensor, sorted_lengths, enforce_sorted=False)
+    
+    def forward(self, data):
+        packed_tensor, sentences_per_doc, sort_order,batch_size = data
         encoded_sentences = self.sentence_encoder(packed_tensor)
         unsort_order = maybe_cuda(torch.LongTensor(unsort(sort_order)))
         unsorted_encodings = encoded_sentences.index_select(0, unsort_order)

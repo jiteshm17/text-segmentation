@@ -153,7 +153,7 @@ def test(model, args, epoch, dataset, logger, threshold):
                 document_sentence_count = len(t)
                 to_idx = int(current_idx + document_sentence_count)
 
-                output = (output_softmax.cpu().numpy()[current_idx:to_idx, 1] > threshold)
+                output = (output_softmax.detach().cpu().numpy()[current_idx:to_idx, 1] > threshold)
                 h = np.append(output, [1])
                 tt = np.append(t, [1])
 
@@ -179,10 +179,6 @@ def main(args):
     utils.read_config_file(args.config)
     utils.config.update(vars(args))  # Updated to use vars(args)
     logger.debug(f'Running with config {utils.config}')
-
-    
-    # log_dir = os.path.join('runs', args.expname, str(time.time()))
-    # configure(log_dir)
 
     word2vec = None if args.test else gensim.models.KeyedVectors.load_word2vec_format(utils.config['word2vecfile'], binary=True)
 
@@ -220,15 +216,21 @@ def main(args):
         best_val_pk = 1.0
         for j in range(args.epochs):
             train(model, args, j, train_dl, logger, optimizer)
-            torch.save(model, open(checkpoint_path / f'model{j:03d}.pt', 'wb'))
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict()
+            }, open(checkpoint_path / f'model{j:03d}.pt', 'wb'))
 
             val_pk, threshold = validate(model, args, j, dev_dl, logger)
             print(f'Current best model from epoch {j} with p_k {val_pk} and threshold {threshold}')
-            # if val_pk < best_val_pk:
-            #     test_pk = test(model, args, j, test_dl, logger, threshold)
-            #     logger.debug(colored(f'Current best model from epoch {j} with p_k {test_pk} and threshold {threshold}', 'green'))
-            #     best_val_pk = val_pk
-            #     torch.save(model, open(checkpoint_path / 'best_model.pt', 'wb'))
+            if val_pk < best_val_pk:
+                test_pk = test(model, args, j, test_dl, logger, threshold)
+                logger.debug(colored(f'Current best model from epoch {j} with p_k {test_pk} and threshold {threshold}', 'green'))
+                best_val_pk = val_pk
+                torch.save({
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict()
+                }, open(checkpoint_path / f'best_model.pt', 'wb'))
 
     else:
         test_dl = DataLoader(WikipediaDataSet(args.infer, word2vec=word2vec, high_granularity=args.high_granularity),
@@ -244,7 +246,7 @@ if __name__ == '__main__':
     parser.add_argument('--test', help='Test mode? (e.g. fake word2vec)', action='store_true')
     parser.add_argument('--bs', help='Batch size', type=int, default=8)
     parser.add_argument('--test_bs', help='Test batch size', type=int, default=5)
-    parser.add_argument('--epochs', help='Number of epochs to run', type=int, default=1)
+    parser.add_argument('--epochs', help='Number of epochs to run', type=int, default=10)
     parser.add_argument('--model', help='Model to run - will import and run',default='max_sentence_embedding')
     parser.add_argument('--load_from', help='Location of a .t7 model file to load. Training will continue')
     parser.add_argument('--expname', help='Experiment name to appear on tensorboard', default='exp1')

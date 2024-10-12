@@ -69,7 +69,7 @@ class Model(nn.Module):
     def forward_helper(self, sentences_per_doc, unsorted_encodings):
         
         # Step 3: Efficiently split the unsorted_encodings into separate documents using tensor operations
-        sentences_per_doc = maybe_cuda(torch.LongTensor(sentences_per_doc))
+        sentences_per_doc = torch.LongTensor(sentences_per_doc)
         encoded_documents = torch.split(unsorted_encodings, sentences_per_doc.tolist())
 
         # Step 4: Calculate maximum document size and pad documents in one go

@@ -19,7 +19,7 @@ def get_choi_files(path):
 
 def custom_pad(s, max_length):
     s_length = s.size()[0]
-    v = utils.maybe_cuda(s.unsqueeze(0).unsqueeze(0))
+    v = s.unsqueeze(0).unsqueeze(0)
     padded = F.pad(v, (0, 0, 0, max_length - s_length))  # (1, 1, max_length, 300)
     shape = padded.size()
     return padded.view(shape[2], 1, shape[3])  # (max_length, 1, 300)
@@ -78,7 +78,7 @@ def collate_fn(batch):
 
     packed_data,sentences_per_doc,sort_order = pack_tensor(batched_data)
 
-    data = (packed_data,sentences_per_doc,sort_order,len(batch))
+    data = (packed_data,sentences_per_doc,sort_order)
     
     return (data,batched_targets,paths)
 

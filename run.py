@@ -17,6 +17,7 @@ from wiki_loader import WikipediaDataSet
 import accuracy
 import numpy as np
 from termcolor import colored
+from models.max_sentence_embedding import Model
 
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -205,7 +206,7 @@ def main(args):
         test_dl = DataLoader(test_dataset, batch_size=args.test_bs, collate_fn=collate_fn, shuffle=False,
                              num_workers=args.num_workers,pin_memory=args.pin_memory)
 
-    model = import_model(args.model) if args.model else torch.load(open(args.load_from, 'rb'))
+    model = Model(input_size=300, hidden=256, num_layers=2)
     model = maybe_cuda(model)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -244,7 +245,7 @@ if __name__ == '__main__':
     parser.add_argument('--bs', help='Batch size', type=int, default=8)
     parser.add_argument('--test_bs', help='Test batch size', type=int, default=5)
     parser.add_argument('--epochs', help='Number of epochs to run', type=int, default=1)
-    parser.add_argument('--model', help='Model to run - will import and run')
+    parser.add_argument('--model', help='Model to run - will import and run',default='max_sentence_embedding')
     parser.add_argument('--load_from', help='Location of a .t7 model file to load. Training will continue')
     parser.add_argument('--expname', help='Experiment name to appear on tensorboard', default='exp1')
     parser.add_argument('--checkpoint_dir', help='Checkpoint directory', default='checkpoints')

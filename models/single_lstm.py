@@ -9,12 +9,6 @@ from times_profiler import profiler
 logger = setup_logger(__name__, 'train.log')
 profilerLogger = setup_logger("profilerLogger", 'profiler.log', True)
 
-# Removed Variable since it is deprecated in PyTorch. Tensors now automatically track gradients if required.
-def zero_state(module, batch_size):
-    # * 2 is for the two directions
-    return maybe_cuda(torch.zeros(module.num_layers, batch_size, module.hidden)), \
-           maybe_cuda(torch.zeros(module.num_layers, batch_size, module.hidden))
-
 class SentenceEncodingRNN(nn.Module):
     def __init__(self, input_size, hidden, num_layers):
         super(SentenceEncodingRNN, self).__init__()
@@ -30,8 +24,7 @@ class SentenceEncodingRNN(nn.Module):
 
     def forward(self, x):
         batch_size = x.batch_sizes[0]
-        s = zero_state(self, batch_size)
-        _, (hidden, _) = self.lstm(x, s)  # (4, batch_size, 128)
+        _, (hidden, _) = self.lstm(x)  # (4, batch_size, 128)
         transposed = hidden.transpose(0, 1)  # (batch_size, 4, 128)
         reshaped = transposed.contiguous().view(batch_size, -1)
 
@@ -117,7 +110,7 @@ class Model(nn.Module):
         docs_tensor = torch.cat(padded_docs, 1)
         packed_docs = pack_padded_sequence(docs_tensor, ordered_doc_sizes, enforce_sorted=False)
         profiler.set()  # 3
-        sentence_lstm_output, _ = self.sentence_lstm(packed_docs, zero_state(self, batch_size=batch_size))
+        sentence_lstm_output, _ = self.sentence_lstm(packed_docs)
         profiler.set()  # 4
         padded_x, _ = pad_packed_sequence(sentence_lstm_output)  # (max sentence len, batch, 256)
 

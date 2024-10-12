@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 from utils import maybe_cuda, setup_logger, unsort
 import numpy as np
 from times_profiler import profiler
@@ -53,10 +53,6 @@ class Model(nn.Module):
         packed_output, _ = self.sentence_encoder(x)
         padded_output, lengths = pad_packed_sequence(packed_output)  # (max sentence len, batch, 256)
 
-        # maxes = maybe_cuda(torch.zeros(num_sequences, padded_output.size(2)))
-        # for i in range(num_sequences):
-        #     maxes[i, :] = torch.max(padded_output[:lengths[i], i, :], 0)[0]
-
         # Create a mask based on lengths
         mask = torch.arange(padded_output.size(0)).unsqueeze(1) < lengths.unsqueeze(0)
         mask = maybe_cuda(mask)
@@ -69,37 +65,39 @@ class Model(nn.Module):
 
         return maxes
     
+
+    def forward_helper(self, sentences_per_doc, unsorted_encodings):
+        
+        # Step 3: Efficiently split the unsorted_encodings into separate documents using tensor operations
+        sentences_per_doc = maybe_cuda(torch.LongTensor(sentences_per_doc))
+        encoded_documents = torch.split(unsorted_encodings, sentences_per_doc.tolist())
+
+        # Step 4: Calculate maximum document size and pad documents in one go
+        padded_docs = pad_sequence(encoded_documents, batch_first=True)
+
+        # Step 5: Pack the padded documents for LSTM processing
+        packed_docs = pack_padded_sequence(padded_docs, sentences_per_doc, batch_first=True, enforce_sorted=False)
+
+        # Step 6: Pass through document-level LSTM
+        sentence_lstm_output, _ = self.sentence_lstm(packed_docs)
+
+        # Step 7: Unpack the LSTM output
+        padded_x, _ = pad_packed_sequence(sentence_lstm_output, batch_first=True)
+
+        # Step 8: Select the final hidden states (excluding last prediction) without using a loop
+        doc_outputs = [padded_x[i, :doc_len-1, :] for i, doc_len in enumerate(sentences_per_doc.tolist())]
+
+        # Step 9: Concatenate the outputs into one tensor
+        sentence_outputs = torch.cat(doc_outputs, dim=0)
+
+        return sentence_outputs
+    
     def forward(self, data):
         packed_tensor, sentences_per_doc, sort_order = data
         packed_tensor = maybe_cuda(packed_tensor)
         encoded_sentences = self.forward_sentence_encoding(packed_tensor)
         unsort_order = maybe_cuda(torch.LongTensor(unsort(sort_order)))
         unsorted_encodings = encoded_sentences.index_select(0, unsort_order)
-
-        index = 0
-        encoded_documents = []
-        for sentences_count in sentences_per_doc:
-            end_index = index + sentences_count
-            encoded_documents.append(unsorted_encodings[index: end_index, :])
-            index = end_index
-
-        doc_sizes = [doc.size()[0] for doc in encoded_documents]
-        max_doc_size = np.max(doc_sizes)
-        ordered_document_idx = np.argsort(doc_sizes)[::-1]
-        ordered_doc_sizes = sorted(doc_sizes)[::-1]
-        ordered_documents = [encoded_documents[idx] for idx in ordered_document_idx]
-        padded_docs = [self.pad_document(d, max_doc_size) for d in ordered_documents]
-        docs_tensor = torch.cat(padded_docs, 1)
-        packed_docs = pack_padded_sequence(docs_tensor, ordered_doc_sizes, enforce_sorted=False)
-        sentence_lstm_output, _ = self.sentence_lstm(packed_docs)
-        padded_x, _ = pad_packed_sequence(sentence_lstm_output)  # (max sentence len, batch, 256)
-
-        doc_outputs = []
-        for i, doc_len in enumerate(ordered_doc_sizes):
-            doc_outputs.append(padded_x[0:doc_len - 1, i, :])  # -1 to remove last prediction
-
-        unsorted_doc_outputs = [doc_outputs[i] for i in unsort(ordered_document_idx)]
-        sentence_outputs = torch.cat(unsorted_doc_outputs, 0)
-
+        sentence_outputs = self.forward_helper(sentences_per_doc, unsorted_encodings)
         x = self.h2s(sentence_outputs)
         return x

@@ -2,7 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
-from utils import setup_logger, unsort
+from utils import maybe_cuda, setup_logger, unsort
+import numpy as np
+from times_profiler import profiler
 
 logger = setup_logger(__name__, 'train.log')
 profilerLogger = setup_logger("profilerLogger", 'profiler.log', True)
@@ -53,7 +55,7 @@ class Model(nn.Module):
 
         # Create a mask based on lengths
         mask = torch.arange(padded_output.size(0)).unsqueeze(1) < lengths.unsqueeze(0)
-        # mask = maybe_cuda(mask)
+        mask = maybe_cuda(mask)
         
         # Mask padded values by setting them to a very negative value (so they don't affect the max computation)
         padded_output = padded_output.masked_fill(~mask.unsqueeze(2), float('-inf'))
@@ -92,10 +94,9 @@ class Model(nn.Module):
     
     def forward(self, data):
         packed_tensor, sentences_per_doc, sort_order = data
-        # packed_tensor = maybe_cuda(packed_tensor)
+        packed_tensor = maybe_cuda(packed_tensor)
         encoded_sentences = self.forward_sentence_encoding(packed_tensor)
-        unsort_order = torch.LongTensor(unsort(sort_order))
-        # unsort_order = maybe_cuda(torch.LongTensor(unsort(sort_order)))
+        unsort_order = maybe_cuda(torch.LongTensor(unsort(sort_order)))
         unsorted_encodings = encoded_sentences.index_select(0, unsort_order)
         sentence_outputs = self.forward_helper(sentences_per_doc, unsorted_encodings)
         x = self.h2s(sentence_outputs)

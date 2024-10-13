@@ -21,6 +21,8 @@ from models.max_sentence_embedding import Model
 
 # torch.multiprocessing.set_sharing_strategy('file_system')
 
+torch.manual_seed(42)
+
 preds_stats = utils.predictions_analysis()
 
 def softmax(x):
@@ -89,11 +91,17 @@ def train(model, args, epoch, dataset, logger, optimizer):
         for i, (data, target, paths) in enumerate(dataset):
             if i == args.stop_after:
                 break
-
             pbar.update()
             model.zero_grad()
-            # data_size = compute_batch_size(data)
-            output = model(data)
+
+            try:
+                output = model(data)
+            except Exception as e:
+                print(f"Error while passing batch {i+1} to the model")
+                print(f"Exception: {e}")
+                print(f"Paths: {paths}")
+                continue
+            
             target_var = maybe_cuda(torch.cat(target, 0), args.cuda)
             loss = model.criterion(output, target_var)
             loss.backward()
@@ -115,8 +123,16 @@ def validate(model, args, epoch, dataset, logger):
             if i == args.stop_after:
                 break
             pbar.update()
-            output = model(data)
-            output_softmax = F.softmax(output, dim=1)
+            
+            try:
+                output = model(data)
+                output_softmax = F.softmax(output, dim=1)
+            except Exception as e:
+                print(f"Error while passing batch {i+1} to the model")
+                print(f"Exception: {e}")
+                print(f"Paths: {paths}")
+                continue            
+            
             targets_var = maybe_cuda(torch.cat(target, 0), args.cuda)
 
             output_seg = output.argmax(dim=1).cpu().numpy()
@@ -141,8 +157,16 @@ def test(model, args, epoch, dataset, logger, threshold):
             if i == args.stop_after:
                 break
             pbar.update()
-            output = model(data)
-            output_softmax = F.softmax(output, dim=1)
+            
+            try:
+                output = model(data)
+                output_softmax = F.softmax(output, dim=1)
+            except Exception as e:
+                print(f"Error while passing batch {i+1} to the model")
+                print(f"Exception: {e}")
+                print(f"Paths: {paths}")
+                continue
+            
             targets_var = maybe_cuda(torch.cat(target, 0), args.cuda)
             output_seg = output.argmax(dim=1).cpu().numpy()
             target_seg = targets_var.cpu().numpy()
@@ -167,6 +191,21 @@ def test(model, args, epoch, dataset, logger, threshold):
         preds_stats.reset()
 
         return epoch_pk
+
+
+def load_model_and_optimizer(checkpoint_path, is_cuda, model, optimizer):
+
+    map_location = torch.device('cuda') if is_cuda else torch.device('cpu')
+
+    checkpoint = torch.load(checkpoint_path, map_location=map_location)
+    
+    model.load_state_dict(checkpoint['model_state_dict'])
+    
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+    print(f"Loaded model and optimizer state from {checkpoint_path}")
+    return model, optimizer
+
 
 def main(args):
     sys.path.append(str(Path(__file__).parent))
@@ -207,6 +246,9 @@ def main(args):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
+    if args.load_from:
+        model, optimizer = load_model_and_optimizer(args.load_from, args.cuda, model, optimizer)
+
     if args.benchmark:
         for j in range(args.epochs):
             train(model, args, j, train_dl, logger, optimizer)
@@ -225,7 +267,7 @@ def main(args):
             print(f'Current best model from epoch {j} with p_k {val_pk} and threshold {threshold}')
             if val_pk < best_val_pk:
                 test_pk = test(model, args, j, test_dl, logger, threshold)
-                logger.debug(colored(f'Current best model from epoch {j} with p_k {test_pk} and threshold {threshold}', 'green'))
+                print(f'Current best model from epoch {j} with p_k {test_pk} and threshold {threshold}')
                 best_val_pk = val_pk
                 torch.save({
                     'model_state_dict': model.state_dict(),
@@ -248,7 +290,7 @@ if __name__ == '__main__':
     parser.add_argument('--test_bs', help='Test batch size', type=int, default=5)
     parser.add_argument('--epochs', help='Number of epochs to run', type=int, default=10)
     parser.add_argument('--model', help='Model to run - will import and run',default='max_sentence_embedding')
-    parser.add_argument('--load_from', help='Location of a .t7 model file to load. Training will continue')
+    parser.add_argument('--load_from', help='Location of a .pt model file to load. Training will continue')
     parser.add_argument('--expname', help='Experiment name to appear on tensorboard', default='exp1')
     parser.add_argument('--checkpoint_dir', help='Checkpoint directory', default='checkpoints')
     parser.add_argument('--stop_after', help='Number of batches to stop after', type=int)

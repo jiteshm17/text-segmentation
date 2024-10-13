@@ -124,3 +124,13 @@ class WikipediaDataSet(Dataset):
 
     def __len__(self):
         return len(self.textfiles)
+    
+
+if __name__ == "__main__":
+    root = "/Users/jitesh/Downloads/text-segmentation/data/wiki 727/train"
+    for path in os.listdir(root):
+        if path.startswith('paths_'):
+            continue
+        all_sections = get_sections(os.path.join(root,path), high_granularity=False)
+        if len(all_sections) <= 1:
+            print(os.path.join(root,path))

@@ -35,8 +35,6 @@ Fill relevant paths in configgenerator.py, and execute the script (git repositor
     conda create -n textseg python=3.10
     source activate textseg
     pip install -r requirements.txt
-    pip install tqdm pathlib2 segeval tensorboard_logger flask flask_wtf nltk
-    pip install pandas xlrd xlsxwriter termcolor
 
 ## How to run training process?
 

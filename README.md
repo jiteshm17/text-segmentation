@@ -33,7 +33,7 @@ Fill relevant paths in configgenerator.py, and execute the script (git repositor
 ## Creating an environment:
 
     conda create -n textseg python=3.10
-    source activate textseg
+    conda activate textseg
     pip install -r requirements.txt
 
 ## How to run training process?

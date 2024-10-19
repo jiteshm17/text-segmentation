@@ -2,7 +2,23 @@
 
 This repository contains code and supplementary materials which are required to train and evaluate a model as described in the paper [Text Segmentation as a Supervised Learning Task](https://arxiv.org/abs/1803.09337)
 
-## Downalod required resources
+## Fork Notice
+
+Firstly, I want to acknowledge that this fork heavily builds upon the code from the original repository, with the changes mentioned in [18](https://github.com/koomri/text-segmentation/pull/18). 
+I have implemented several performance optimizations and code improvements to enhance usability, as outlined in the commits.
+
+Due to resource constraints, I could only train the model for a **single epoch on Google Colab**. If anyone is able to **replicate the full results during testing**, your contributions and feedback would be greatly appreciated.
+
+I plan to spend time adding features and further optimizing the code as I find the opportunity. Below is a **To-Do List** of the upcoming enhancements I aim to implement:
+
+### To-Do List:
+- [ ] Add support for **Multi-GPU** training.
+- [ ] Add **TensorBoard logging** for better tracking and visualization.
+
+If you have any suggestions or ideas for additional features or improvements, feel free to raise an issue or submit a pull request!
+
+
+## Download required resources
 
 wiki-727K, wiki-50 datasets:
 >  https://www.dropbox.com/sh/k3jh0fjbyr0gw0a/AADzAd9SDTrBnvs1qLCJY5cza?dl=0
@@ -16,9 +32,9 @@ Fill relevant paths in configgenerator.py, and execute the script (git repositor
 
 ## Creating an environment:
 
-    conda create -n textseg python=2.7 numpy scipy gensim ipython 
+    conda create -n textseg python=3.10
     source activate textseg
-    pip install http://download.pytorch.org/whl/cu80/torch-0.3.0-cp27-cp27mu-linux_x86_64.whl 
+    pip install -r requirements.txt
     pip install tqdm pathlib2 segeval tensorboard_logger flask flask_wtf nltk
     pip install pandas xlrd xlsxwriter termcolor
 
@@ -48,6 +64,3 @@ Input is the full path to the wikipedia dump, temp is the path to the temporary 
 Wikipedia dump can be downloaded from following url:
 
 > https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2
-
-
-

@@ -1,0 +1,11 @@
+gensim==4.3.3
+nltk==3.9.1
+numpy==1.26.4
+pandas==2.2.3
+pathlib2==2.3.7.post1
+segeval==2.0.11
+tensorboard-logger==0.1.0
+termcolor==2.5.0
+torch==2.4.1
+tqdm==4.66.5
+protobuf==3.20.1

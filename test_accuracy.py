@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import DataLoader
-from torch.autograd import Variable
 import numpy as np
 from choiloader import ChoiDataset, collate_fn
 from tqdm import tqdm
@@ -15,6 +14,7 @@ from wiki_loader import WikipediaDataSet
 import accuracy
 from models import naive
 from timeit import default_timer as timer
+from models.max_sentence_embedding import Model
 
 
 logger = utils.setup_logger(__name__, 'test_accuracy.log')
@@ -71,9 +71,10 @@ def main(args):
             print('Running on Choi')
 
     # Load the model
-    with open(args.model, 'rb') as f:
-        model = torch.load(f)
-
+    model = Model(input_size=300, hidden=256, num_layers=2)
+    map_location = torch.device('cuda') if args.cuda else torch.device('cpu')
+    checkpoint = torch.load(args.model, map_location=map_location, weights_only=True)
+    model.load_state_dict(checkpoint['model_state_dict'])
     model = maybe_cuda(model)
     model.eval()
 
@@ -107,10 +108,17 @@ def main(args):
                     break
 
                 pbar.update()
-                output = model(data)
+                
+                try:
+                    output = model(data)
+                except Exception as e:
+                    print(f"Error while passing batch {i+1} to the model")
+                    print(f"Exception: {e}")
+                    continue
+                
                 targets_var = maybe_cuda(torch.cat(targets, 0), args.cuda)
                 batch_loss = 0
-                output_prob = softmax(output.cpu().numpy())
+                output_prob = softmax(output.detach().cpu().numpy())
                 output_seg = output_prob[:, 1] > args.seg_threshold
                 target_seg = targets_var.cpu().numpy()
                 batch_accurate = (output_seg == target_seg).sum()

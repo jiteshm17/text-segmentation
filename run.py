@@ -197,7 +197,7 @@ def load_model_and_optimizer(checkpoint_path, is_cuda, model, optimizer):
 
     map_location = torch.device('cuda') if is_cuda else torch.device('cpu')
 
-    checkpoint = torch.load(checkpoint_path, map_location=map_location)
+    checkpoint = torch.load(checkpoint_path, map_location=map_location, weights_only=True)
     
     model.load_state_dict(checkpoint['model_state_dict'])
     

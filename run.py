@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader, Subset
 import torch.nn.functional as F
-
+from torch.nn import DataParallel
 from choiloader import ChoiDataset, collate_fn
 from tqdm import tqdm
 from argparse import ArgumentParser
@@ -198,8 +198,11 @@ def load_model_and_optimizer(checkpoint_path, is_cuda, model, optimizer):
     map_location = torch.device('cuda') if is_cuda else torch.device('cpu')
 
     checkpoint = torch.load(checkpoint_path, map_location=map_location, weights_only=True)
-    
-    model.load_state_dict(checkpoint['model_state_dict'])
+
+    if isinstance(model, torch.nn.DataParallel):
+        model.module.load_state_dict(checkpoint['model_state_dict'])
+    else:
+        model.load_state_dict(checkpoint['model_state_dict'])
     
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 
@@ -234,15 +237,26 @@ def main(args):
             dev_dataset = Subset(dev_dataset,range(1000))
             test_dataset = Subset(test_dataset,range(1000))
 
-        train_dl = DataLoader(train_dataset, batch_size=args.bs, collate_fn=collate_fn, shuffle=True,
+        train_batch_size,test_batch_size = args.bs, args.test_bs
+        
+        if torch.cuda.device_count() > 1:
+            num_gpus = torch.cuda.device_count()
+            print(f"Using {num_gpus} GPUs")
+            train_batch_size = args.bs * num_gpus
+            test_batch_size = args.test_bs * num_gpus
+        
+        train_dl = DataLoader(train_dataset, batch_size=train_batch_size, collate_fn=collate_fn, shuffle=True,
                               num_workers=args.num_workers,pin_memory=args.pin_memory)
-        dev_dl = DataLoader(dev_dataset, batch_size=args.test_bs, collate_fn=collate_fn, shuffle=False,
+        dev_dl = DataLoader(dev_dataset, batch_size=test_batch_size, collate_fn=collate_fn, shuffle=False,
                             num_workers=args.num_workers,pin_memory=args.pin_memory)
-        test_dl = DataLoader(test_dataset, batch_size=args.test_bs, collate_fn=collate_fn, shuffle=False,
+        test_dl = DataLoader(test_dataset, batch_size=test_batch_size, collate_fn=collate_fn, shuffle=False,
                              num_workers=args.num_workers,pin_memory=args.pin_memory)
 
     model = Model(input_size=300, hidden=256, num_layers=2)
     model = maybe_cuda(model)
+
+    if torch.cuda.device_count() > 1 and not args.infer:
+        model = DataParallel(model)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
@@ -258,8 +272,12 @@ def main(args):
         best_val_pk = 1.0
         for j in range(args.epochs):
             train(model, args, j, train_dl, logger, optimizer)
+            if isinstance(model, torch.nn.DataParallel):
+                model_state_dict = model.module.state_dict()
+            else:
+                model_state_dict = model.state_dict()
             torch.save({
-                'model_state_dict': model.state_dict(),
+                'model_state_dict': model_state_dict,
                 'optimizer_state_dict': optimizer.state_dict()
             }, open(checkpoint_path / f'model{j:03d}.pt', 'wb'))
 
@@ -269,8 +287,12 @@ def main(args):
                 test_pk = test(model, args, j, test_dl, logger, threshold)
                 print(f'Current best model from epoch {j} with p_k {test_pk} and threshold {threshold}')
                 best_val_pk = val_pk
+                if isinstance(model, torch.nn.DataParallel):
+                    model_state_dict = model.module.state_dict()
+                else:
+                    model_state_dict = model.state_dict()
                 torch.save({
-                    'model_state_dict': model.state_dict(),
+                    'model_state_dict': model_state_dict,
                     'optimizer_state_dict': optimizer.state_dict()
                 }, open(checkpoint_path / f'best_model.pt', 'wb'))
 

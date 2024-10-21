@@ -74,7 +74,10 @@ def main(args):
     model = Model(input_size=300, hidden=256, num_layers=2)
     map_location = torch.device('cuda') if args.cuda else torch.device('cpu')
     checkpoint = torch.load(args.model, map_location=map_location, weights_only=True)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    if isinstance(model, torch.nn.DataParallel):
+        model.module.load_state_dict(checkpoint['model_state_dict'])
+    else:
+        model.load_state_dict(checkpoint['model_state_dict'])
     model = maybe_cuda(model)
     model.eval()
 

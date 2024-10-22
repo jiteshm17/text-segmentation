@@ -99,7 +99,7 @@ def train(model, args, epoch, dataset, logger, optimizer):
             except Exception as e:
                 print(f"Error while passing batch {i+1} to the model")
                 print(f"Exception: {e}")
-                print(f"Paths: {paths}")
+                # print(f"Paths: {paths}")
                 continue
             
             target_var = maybe_cuda(torch.cat(target, 0), args.cuda)
@@ -130,7 +130,7 @@ def validate(model, args, epoch, dataset, logger):
             except Exception as e:
                 print(f"Error while passing batch {i+1} to the model")
                 print(f"Exception: {e}")
-                print(f"Paths: {paths}")
+                # print(f"Paths: {paths}")
                 continue            
             
             targets_var = maybe_cuda(torch.cat(target, 0), args.cuda)
@@ -164,7 +164,7 @@ def test(model, args, epoch, dataset, logger, threshold):
             except Exception as e:
                 print(f"Error while passing batch {i+1} to the model")
                 print(f"Exception: {e}")
-                print(f"Paths: {paths}")
+                # print(f"Paths: {paths}")
                 continue
             
             targets_var = maybe_cuda(torch.cat(target, 0), args.cuda)
@@ -239,7 +239,7 @@ def main(args):
 
         train_batch_size,test_batch_size = args.bs, args.test_bs
         
-        if torch.cuda.device_count() > 1:
+        if args.multi_gpu and torch.cuda.device_count() > 1:
             num_gpus = torch.cuda.device_count()
             print(f"Using {num_gpus} GPUs")
             train_batch_size = args.bs * num_gpus
@@ -255,7 +255,7 @@ def main(args):
     model = Model(input_size=300, hidden=256, num_layers=2)
     model = maybe_cuda(model)
 
-    if torch.cuda.device_count() > 1 and not args.infer:
+    if args.multi_gpu and torch.cuda.device_count() > 1 and not args.infer:
         model = DataParallel(model)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -304,6 +304,7 @@ def main(args):
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--cuda', help='Use cuda?', action='store_true')
+    parser.add_argument('--multi_gpu', help='Use multiple GPUs', action='store_true')
     parser.add_argument('--pin_memory', help='Pin Memory?', action='store_true')
     parser.add_argument('--subset', help='Use a sample of 1000 rows', action='store_true')
     parser.add_argument('--benchmark', help='Use PyTorch profiler', action='store_true')
